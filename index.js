@@ -26,6 +26,23 @@ async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
     await client.connect();
+
+    const toyCollection = client.db('toyUser').collection('addToy')
+
+    //All Toys
+
+    //category
+    app.get("/allToys/:text", async(req, res) =>{
+        // console.log(req.params.text)
+        if(req.params.text == "sportsCar" || req.params.text == "fireTruck" || req.params.text == "policeCar"){
+          const result = await toyCollection.find({subcategory: req.params.text}).toArray()
+          res.send(result)
+          return
+        }
+        const result = await toyCollection.find({}).toArray()
+        res.send(result)
+      })
+
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
