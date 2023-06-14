@@ -1,6 +1,6 @@
+const { MongoClient, ServerApiVersion } = require('mongodb');
 const express = require('express')
 const cors = require('cors')
-const { MongoClient, ServerApiVersion } = require('mongodb');
 require('dotenv').config()
 const app = express()
 const port = process.env.PORT || 5000;
@@ -11,7 +11,7 @@ app.use(express.json());
 
 // console.log(process.env.DB_PASS)
 
-const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.cacihg8.mongodb.net/?retryWrites=true&w=majority`;
+const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.dedsmmq.mongodb.net/?retryWrites=true&w=majority`;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
 const client = new MongoClient(uri, {
@@ -25,81 +25,99 @@ const client = new MongoClient(uri, {
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
-    // await client.connect();
+    await client.connect();
+    const toyCollection = client.db('toyLab').collection('toys')
+    // const toyCollection = client.db('toyUser').collection('addToy') old
 
-    const toyCollection = client.db('toyUser').collection('addToy')
+    // get all toys
+    app.get("/allToys", async (req, res) => {
+      const result = await toysCollection.find({}).limit(20).toArray();
+      res.send(result);
+    });
+    
 
-    //all Toy
-    app.get("/allToy", async(req, res) =>{
-        const cursor = toyCollection.find().limit(20)
-        const result = await cursor.toArray()
-        res.send(result)
-    })
+    // get all toys by category
+    app.get("/toys/:category", async (req, res) => {
+      if (
+        req.params.category == "sportsCar" ||
+        req.params.category == "fireTruck" ||
+        req.params.category == "policeCar"
+      ) {
+        const result = await toysCollection
+          .find({ category: req.params.category })
+          .toArray();
+        return res.send(result);
+      } else {
+        const result = await toysCollection.find({}).toArray();
+        res.send(result);
+      }
+    });
 
-    //category
-    app.get("/allToys/:text", async(req, res) =>{
-        // console.log(req.params.text)
-        if(req.params.text == "sportsCar" || req.params.text == "fireTruck" || req.params.text == "policeCar"){
-          const result = await toyCollection.find({subcategory: req.params.text}).toArray()
-          res.send(result)
-          return
-        }
-        const result = await toyCollection.find({}).toArray()
-        res.send(result)
-      })
-
-      //my toy
-    app.get("/addToy", async(req, res) =>{
-        console.log(req.query.email)
-        let query = {}
-        if(req.query?.email){
-          query = {email: req.query.email}
-          const sort = req.query.sort == 'true' ? 1 : -1
-        }
-        const result = await toyCollection.find(query).sort({price:sort}).toArray()
-        res.send(result)
-      })
+      //my toys
+      app.get("/myToys/:email", async (req, res) => {
+        const result = await toysCollection
+          .find({ seller_email: req.params.email })
+          .sort({ price: req.query.sort === "asc" ? 1 : -1 })
+          .toArray();
+        res.send(result);
+      });
+  
+      const indexKeys = { name: 1 };
+      const indexOptions = { name: "name" };
+      const result = await toysCollection.createIndex(indexKeys, indexOptions);
 
       //update toy
-    app.get("/addToy/:id", async(req, res) =>{
-        const id = req.params.id 
-        const query = {_id: new ObjectId(id)}
-        const result = await toyCollection.findOne(query)
-        res.send(result)
-      })
+      app.get("/toySearchByName/:name", async (req, res) => {
+        const search = req.params.name;
+        const result = await toysCollection
+          .find({
+            $or: [{ name: { $regex: search, $options: "i" } }],
+          })
+          .toArray();
+        res.send(result);
+      });
 
-      //database
-    app.post('/addToy', async(req, res) =>{
-        const newToy = req.body
-        console.log(newToy)
-        const result = await toyCollection.insertOne(newToy)
-        res.send(result)
-      })
+      //database a toy into database
+      app.post("/addToy", async (req, res) => {
+        const toy = req.body;
+        const result = await toysCollection.insertOne(toy);
+        res.send(result);
+      });
+
+      // toy details
+      app.get("/toy/:id", async (req, res) => {
+        const id = req.params.id;
+        const filter = { _id: new ObjectId(id) };
+        const result = await toysCollection.findOne(filter);
+        res.send(result);
+      });
   
       //forUpdate
-      app.put("/addToy/:id", async(req, res) =>{
-        const id = req.params.id 
-        const filter = {_id: new ObjectId(id)}
-        const options = { upsert: true };
-        const updatedToy = req.body
-        const toy = {
-          $set:{
-            price: updatedToy.price, 
-            quantity: updatedToy.quantity,
-            description: updatedToy.description
-          }
-        }
-        const result = await toyCollection.updateOne(filter, toy, options)
-        res.send(result)
-      })
+      app.patch("/allToys/:id", async (req, res) => {
+        const id = req.params.id;
+        const updateToyData = req.body;
+        const filter = { _id: new ObjectId(id) };
+        const updateToy = {
+          $set: {
+            name: updateToyData.name,
+            picture: updateToyData.picture,
+            price: updateToyData.price,
+            rating: updateToyData.rating,
+            quantity: updateToyData.quantity,
+            details: updateToyData.details,
+          },
+        };
+        const result = await toysCollection.updateOne(filter, updateToy);
+        res.send(result);
+      });
   
-      //delete
-      app.delete("/addToy/:id", async(req, res) =>{
-        const id = req.params.id 
-        const query = {_id: new ObjectId(id)}
-        const result = await toyCollection.deleteOne(query)
-        res.send(result)
-      })
+      //delete a toy
+      app.delete("/allToys/:id", async (req, res) => {
+        const id = req.params.id;
+        const query = { _id: new ObjectId(id) };
+        const result = await toysCollection.deleteOne(query);
+        res.send(result);
+      });
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
