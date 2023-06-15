@@ -6,7 +6,12 @@ const app = express()
 const port = process.env.PORT || 5000;
 
 //middleware
-app.use(cors())
+const corsOptions ={
+origin:'*',
+credentials:true,
+optionSuccessStatus:200,
+}
+app.use(cors(corsOptions))
 app.use(express.json());
 
 // console.log(process.env.DB_PASS)
@@ -25,8 +30,8 @@ const client = new MongoClient(uri, {
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
-    await client.connect();
-    const toyCollection = client.db('toyLab').collection('toys')
+    // await client.connect();
+    const toysCollection = client.db('toyLab').collection('toys')
     // const toyCollection = client.db('toyUser').collection('addToy') old
 
     // get all toys
@@ -39,9 +44,9 @@ async function run() {
     // get all toys by category
     app.get("/toys/:category", async (req, res) => {
       if (
-        req.params.category == "sportsCar" ||
-        req.params.category == "fireTruck" ||
-        req.params.category == "policeCar"
+        req.params.category == "Sports" ||
+        req.params.category == "Fire" ||
+        req.params.category == "Police"
       ) {
         const result = await toysCollection
           .find({ category: req.params.category })
